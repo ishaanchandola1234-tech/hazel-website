@@ -71,17 +71,17 @@ p {
 """
 
 # ---------------- AUDIO ----------------
-# Audio file already trimmed – starts at the perfect part
+# NOTE: Audio file is renamed to avoid cache issues
 
 AUDIO = """
 <audio id="bg-music" controls loop style="width:90%; margin:20px auto; display:block;">
-    <source src="/static/love.mp3" type="audio/mpeg">
+    <source src="/static/love_v2.mp3" type="audio/mpeg">
 </audio>
 
 <script>
 const music = document.getElementById("bg-music");
 
-// Resume music if it was playing before page change
+// Resume music after page change if it was playing
 if (localStorage.getItem("musicPlaying") === "yes") {
     music.play().catch(() => {});
 }
@@ -114,7 +114,6 @@ BASE_HTML = """
 """
 
 # ---------------- HOME (FIRST PAGE) ----------------
-# THIS IS WHAT OPENS WHEN THE URL IS CLICKED
 
 @app.route("/")
 def home():
@@ -281,7 +280,7 @@ def promise():
         BASE_HTML.format(style=STYLE, audio=AUDIO, content=content)
     )
 
-# ---------------- SAFE ENTRY REDIRECT ----------------
+# ---------------- SAFE ENTRY ----------------
 
 @app.route("/start")
 def start():
@@ -292,4 +291,3 @@ def start():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
