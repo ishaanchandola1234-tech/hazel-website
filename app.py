@@ -1,11 +1,41 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, render_template_string
+
+from flask import Flask, render_template_string, redirect, url_for
 from datetime import date
+import os
 
 app = Flask(__name__)
 
+# ---------------- STYLE ----------------
+
 STYLE = """
 <style>
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #ffe6f0, #ffffff);
+    text-align: center;
+}
+
+.fade {
+    animation: fadeIn 1.2s ease-in;
+    padding: 20px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+h1 { color: #c2185b; }
+h2 { color: #880e4f; }
+
+p {
+    font-size: 16px;
+    line-height: 1.7;
+}
+
 .poem {
     white-space: pre-line;
     font-size: 16px;
@@ -13,114 +43,61 @@ STYLE = """
     margin-top: 25px;
 }
 
-body {
-    background: linear-gradient(to bottom, #ffdde1, #ee9ca7);
-    font-family: Georgia, serif;
-    text-align: center;
-    padding: 20px;
-    margin: 0;
-    color: #2c2c2c;
-    overflow-x: hidden;
-}
-h1 { font-size: 30px; }
-h2 { font-size: 20px; margin: 15px 0; }
-p { font-size: 16px; line-height: 1.7; }
-
 .images {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    margin-top: 20px;
 }
+
 .images img {
     width: 90%;
-    max-width: 320px;
-    margin: 12px 0;
-    border-radius: 18px;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    max-width: 300px;
+    margin: 10px;
+    border-radius: 15px;
+}
+
+.nav {
+    margin: 30px 0;
 }
 
 .nav a {
-    display: inline-block;
-    padding: 12px 20px;
-    margin: 10px;
-    font-size: 16px;
+    text-decoration: none;
+    color: white;
+    background: #c2185b;
+    padding: 12px 22px;
     border-radius: 25px;
-    background: rgba(255,255,255,0.6);
-    color: #000;
-    text-decoration: none;
-    font-weight: bold;
-    text-decoration: none;
+    margin: 5px;
+    display: inline-block;
 }
-
-.fade {
-    animation: fadeIn 1.8s ease-in;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.heart {
-    position: fixed;
-    bottom: -20px;
-    font-size: 22px;
-    animation: floatUp 6s linear infinite;
-    opacity: 0.6;
-}
-@keyframes floatUp {
-    0% { transform: translateY(0); opacity: 0; }
-    50% { opacity: 0.8; }
-    100% { transform: translateY(-100vh); opacity: 0; }
-}
-#music-btn {
-    margin-top: 20px;
-    padding: 10px 18px;
-    font-size: 15px;
-    border-radius: 20px;
-    border: none;
-    background: rgba(255,255,255,0.7);
-    font-weight: bold;
-}
-
 </style>
-
-<script>
-function createHeart() {
-    const heart = document.createElement("div");
-    heart.className = "heart";
-    heart.innerHTML = "💖";
-    heart.style.left = Math.random() * 100 + "vw";
-    document.body.appendChild(heart);
-    setTimeout(() => heart.remove(), 6000);
-}
-setInterval(createHeart, 700);
-</script>
 """
 
+# ---------------- AUDIO ----------------
+# Audio file already trimmed – starts at the perfect part
+
 AUDIO = """
-<audio id="bg-music" loop>
+<audio id="bg-music" controls loop style="width:90%; margin:20px auto; display:block;">
     <source src="/static/love.mp3" type="audio/mpeg">
 </audio>
 
-<button onclick="toggleMusic()" id="music-btn">🎵 Play Music</button>
-
 <script>
-let playing = false;
-function toggleMusic() {
-    const music = document.getElementById("bg-music");
-    const btn = document.getElementById("music-btn");
-    if (!playing) {
-        music.play();
-        btn.innerText = "⏸ Pause Music";
-        playing = true;
-    } else {
-        music.pause();
-        btn.innerText = "🎵 Play Music";
-        playing = false;
-    }
+const music = document.getElementById("bg-music");
+
+// Resume music if it was playing before page change
+if (localStorage.getItem("musicPlaying") === "yes") {
+    music.play().catch(() => {});
 }
+
+music.addEventListener("play", () => {
+    localStorage.setItem("musicPlaying", "yes");
+});
+
+music.addEventListener("pause", () => {
+    localStorage.setItem("musicPlaying", "no");
+});
 </script>
 """
+
+# ---------------- BASE HTML ----------------
+
 BASE_HTML = """
 <!DOCTYPE html>
 <html>
@@ -129,7 +106,6 @@ BASE_HTML = """
 <title>For Hazel ❤️</title>
 {style}
 </head>
-
 <body>
 {audio}
 {content}
@@ -137,46 +113,8 @@ BASE_HTML = """
 </html>
 """
 
-
-
-@app.route("/start")
-def start():
-
-    met_days = (date.today() - date(2024, 9, 4)).days
-    dating_days = (date.today() - date(2024, 10, 8)).days
-
-
-    content = f"""
-    <div class="fade">
-        <h1>Our Beginning ❤️</h1>
-
-        <p>
-            We met on <b>4th September 2024</b><br>
-            And started dating on <b>8th October 2024</b>
-        </p>
-
-        <h2>⏳ {met_days} days since we met</h2>
-        <h2>💖 {dating_days} days since we became us</h2>
-
-        <div class="images">
-            <img src="/static/img1.jpg">
-            <img src="/static/img2.jpg">
-        </div>
-
-        <div class="nav">
-            <a href="/poem">Next ➜</a>
-        </div>
-    </div>
-    """
-
-    return render_template_string(
-        BASE_HTML.format(
-            style=STYLE,
-            audio=AUDIO,
-            content=content
-        )
-    )
-
+# ---------------- HOME (FIRST PAGE) ----------------
+# THIS IS WHAT OPENS WHEN THE URL IS CLICKED
 
 @app.route("/")
 def home():
@@ -207,53 +145,151 @@ def home():
     """
 
     return render_template_string(
-        BASE_HTML.format(
-            style=STYLE,
-            audio=AUDIO,
-            content=content
-        )
+        BASE_HTML.format(style=STYLE, audio=AUDIO, content=content)
     )
 
+# ---------------- POEM 1 ----------------
+
+@app.route("/poem")
+def poem():
+    content = """
+    <div class="fade">
+        <h1>For You 💖</h1>
+
+        <div class="poem">
+The brown eyes ,
+The long hair
+
+The beautiful fragrance
+Is it what I fell for ?
+From considering love to be a distraction,
+To falling harder for you everyday ...
+From being an cold hearted boy ,
+To being a emotional soft hearted person ...
+From being an independent guy ,
+To being Totally dependent on your love
+Just the eyes , the hair , and the fragrance couldn't be all that I fell for ...
+
+Now that I think ,
+Now that I know ,
+It was something that was planned
+I think they call this destiny !
+You came like a bright light into my dull life
+You came like a ray of hope into my hopeless mind
+You came like a blessing ....
+YOU are what I fell for ...
+
+You are my home
+My safe place , my peace
+You are my strength ..
+For you I would cross a 1000 miles
+There are no boundaries
+I will always be there ,
+To protect you ,
+To guide you
+To support you ..
+I'll be your shadow
+You will never be alone ...
+
+I love you ..
+        </div>
+
+        <div class="images">
+            <img src="/static/img3.jpg">
+            <img src="/static/img4.jpg">
+        </div>
+
+        <div class="nav">
+            <a href="/">⬅ Back</a>
+            <a href="/poem2">Next ➜</a>
+        </div>
+    </div>
+    """
+
+    return render_template_string(
+        BASE_HTML.format(style=STYLE, audio=AUDIO, content=content)
+    )
+
+# ---------------- POEM 2 ----------------
+
+@app.route("/poem2")
+def poem2():
+    content = """
+    <div class="fade">
+        <h1>Always You ❤️</h1>
+
+        <div class="poem">
+Hazel
+Remember ? The time we first met ..
+Remember ? The blue lagoon ..
+Remember? How you were trying to comfort me when I was all shy
+Remember ? The note I gave you and left without even saying goodbye
+
+Because I remember,
+I remember the time I first saw your eyes
+I remember getting lost again and again being around you
+I remember how the world became silent for some time when you were around me
+I remember the blue lagoon
+I remember how I just gave you the note and left without saying goodbye ,
+just because I didn't want to say goodbye ,
+hoping we would meet again
+It's been a year remember ?
+        </div>
+
+        <div class="images">
+            <img src="/static/img5.jpg">
+            <img src="/static/img6.jpg">
+        </div>
+
+        <div class="nav">
+            <a href="/poem">⬅ Back</a>
+            <a href="/promise">Next ➜</a>
+        </div>
+    </div>
+    """
+
+    return render_template_string(
+        BASE_HTML.format(style=STYLE, audio=AUDIO, content=content)
+    )
+
+# ---------------- PROMISE ----------------
 
 @app.route("/promise")
 def promise():
-    return render_template_string(
-f"""{STYLE}
-{AUDIO}
+    content = """
+    <div class="fade">
+        <h1>One Promise 🕊️</h1>
 
-<div class="fade">
-    <h1>One Promise 🕊️</h1>
+        <p>
+            No matter what life brings,<br>
+            No matter how hard days get,<br><br>
 
-    <p>
-        I don’t know what the future looks like.<br>
-        I don’t know where life will take us.<br><br>
+            I choose you.<br>
+            Every day.<br><br>
 
-        But I know one thing for sure.<br><br>
+            Always you.<br>
+            Always us. ❤️
+        </p>
 
-        I choose you.<br>
-        In the calm days.<br>
-        In the hard days.<br>
-        In the days when nothing makes sense.<br><br>
-
-        I promise to stand by you,<br>
-        to listen to you,<br>
-        to protect your peace,<br>
-        and to love you in ways that feel safe and true.<br><br>
-
-        No matter what changes,<br>
-        this choice never will.
-    </p>
-
-    <h2>Always you. Always us. ❤️</h2>
-
-    <div class="nav">
-        <a href="/">⬅ Back Home</a>
+        <div class="nav">
+            <a href="/">⬅ Back Home</a>
+        </div>
     </div>
-</div>
-"""
-)
+    """
+
+    return render_template_string(
+        BASE_HTML.format(style=STYLE, audio=AUDIO, content=content)
+    )
+
+# ---------------- SAFE ENTRY REDIRECT ----------------
+
+@app.route("/start")
+def start():
+    return redirect(url_for("home"))
+
+# ---------------- RUN ----------------
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
